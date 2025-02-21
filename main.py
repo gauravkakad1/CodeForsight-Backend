@@ -1,4 +1,4 @@
- from dto.CreateAccountRequest import CreateAccountRequest
+from dto.CreateAccountRequest import CreateAccountRequest
 from dto.CreateConversationRequest import CreateConversationRequest
 from dto.GetConversationsRequest import GetConversationsRequest
 from dto.GetMessagesRequest import GetMessagesRequest
