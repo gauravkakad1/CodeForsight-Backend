@@ -1,4 +1,4 @@
-from dto.CreateAccountRequest import CreateAccountRequest
+ from dto.CreateAccountRequest import CreateAccountRequest
 from dto.CreateConversationRequest import CreateConversationRequest
 from dto.GetConversationsRequest import GetConversationsRequest
 from dto.GetMessagesRequest import GetMessagesRequest
@@ -129,6 +129,7 @@ async def get_all_messages(request: GetMessagesRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+#create conv
 @app.post("/codeforsight/v1/createConversation/")
 async def create_conversation(request: CreateConversationRequest):
     try:
