@@ -6,8 +6,9 @@ from dto.GetMessagesRequest import GetMessagesRequest
 from groq import Groq
 import graphviz
 from dotenv import load_dotenv
-import Database  as db
+
 # import tiktoken
+import MongoDB_database as mongodb
 
 
 # Load environment variables from .env file
@@ -23,13 +24,13 @@ client = Groq(api_key=apiKey)
 
 
 # Function to query 
-def query_groq(question : str,req: ChatRequest , isDotCode: bool , isexplanation : bool ) -> str:
+async def query_groq(question : str,req: ChatRequest , isDotCode: bool , isexplanation : bool ) -> str:
     try:
-        # print("Request : ",req)
-        # print("isDotCode : ",isDotCode)
-        # print("isexplanation : ",isexplanation)
+        print("Request : ",req)
+        print("isDotCode : ",isDotCode)
+        print("isexplanation : ",isexplanation)
         prompt : str = req.input_question
-        # print("Prompt : ",prompt)
+        print("Prompt : ",prompt)
         req =  GetMessagesRequest(
             conversation_id = req.conversation_id,
             user_id =req.user_id
@@ -37,12 +38,12 @@ def query_groq(question : str,req: ChatRequest , isDotCode: bool , isexplanation
         chat_messages = []
 
         print("1")       
-        db_msgs = db.get_messages(req)
-        # print("DB Messages : ",str(db_msgs))
+        db_msgs = await mongodb.get_all_messages(req.conversation_id)
+        print("DB Messages : ",str(db_msgs))
         db_msgs = db_msgs or [] 
         print("2")       
         if isexplanation :
-            db_msgs = [msg for msg in db_msgs if (msg['isexplanation'] != 0 and msg['isdotcode'] == 0) or (msg['isexplanation'] == 0 and msg['isdotcode'] == 0)]
+            db_msgs = [msg for msg in db_msgs if (msg['isExplanation'] != 0 and msg['isDotCode'] == 0) or (msg['isExplanation'] == 0 and msg['isDotCode'] == 0)]
             chat_messages.append({"role": "system", "content": "You are a helpful assistant expert in the cybersecurity domain."})
             # print("Chat Messages2 : ",chat_messages)
             # print("DB Messages2 : ",db_msgs)
@@ -58,7 +59,7 @@ def query_groq(question : str,req: ChatRequest , isDotCode: bool , isexplanation
             print("4")
             # print("Chat Messages3 : ",chat_messages)
         if isDotCode :
-            db_msgs = [msg for msg in db_msgs if (msg['isdotcode'] != 0 and msg['isexplanation'] == 0) or (msg['isdotcode'] == 0 and msg['isexplanation'] == 0)]
+            db_msgs = [msg for msg in db_msgs if (msg['isDotCode'] != 0 and msg['isExplanation'] == 0) or (msg['isDotCode'] == 0 and msg['isExplanation'] == 0)]
             chat_messages.append({"role": "system", "content": "You are a helpful assistant expert in generating DOT language Graphviz code."})
             for msg in db_msgs:
                 role = "user" if msg['sender_id'] != 0 else "assistant"
@@ -84,20 +85,21 @@ def query_groq(question : str,req: ChatRequest , isDotCode: bool , isexplanation
             messages = chat_messages,
             model="llama-3.3-70b-versatile",
             max_tokens=6000,
+
         )
         
         print("6")
         # print("Chat Completion : ",chat_completion.choices[0].message.content.strip())
-        if chat_completion.choices[0].message.content.strip() is not None and chat_completion.choices[0].message.content.strip() != "":
-            # chat_messages.append({"role": "assistant", "content": chat_completion.choices[0].message.content.strip()})
-            if isexplanation:
-                print("7")
-                db.insert_message(conversation_id= req.conversation_id,sender_id= req.user_id,message= question,isexplanation=0, isdotcode=0 , imgid = None )
-                db.insert_message(conversation_id=req.conversation_id,sender_id= 1, message = chat_completion.choices[0].message.content.strip(),isexplanation=1 ,  isdotcode=0, imgid = None ) 
-                print("8")
-            if isDotCode:
-                # db.insert_message(conversation_id= req.conversation_id,sender_id= req.user_id, message = prompt , isdotcode=0 , isexplanation=0)
-                db.insert_message(conversation_id=req.conversation_id, sender_id= 1,message= chat_completion.choices[0].message.content.strip(),isdotcode=1 , isexplanation=0 , imgid= None)
+        # if chat_completion.choices[0].message.content.strip() is not None and chat_completion.choices[0].message.content.strip() != "":
+        #     # chat_messages.append({"role": "assistant", "content": chat_completion.choices[0].message.content.strip()})
+        #     if isexplanation:
+        #         print("7")
+        #         mongodb.insert_message(conversation_id= req.conversation_id,sender_id= req.user_id,message= question,isexplanation=0, isdotcode=0 , imgid = None )
+        #         mongodb.insert_message(conversation_id=req.conversation_id,sender_id= "user", message = chat_completion.choices[0].message.content.strip(),isexplanation=1 ,  isdotcode=0, imgid = None ) 
+        #         print("8")
+        #     if isDotCode:
+        #         # db.insert_message(conversation_id= req.conversation_id,sender_id= req.user_id, message = prompt , isdotcode=0 , isexplanation=0)
+        #         mongodb.insert_message(conversation_id=req.conversation_id, sender_id= "user",message= chat_completion.choices[0].message.content.strip(),isdotcode=1 , isexplanation=0 , imgid= None)
                 
         return chat_completion.choices[0].message.content.strip()
     except Exception as e:
@@ -112,27 +114,29 @@ def clean_dot_code(response: str) -> str:
         return ""
     return response
 
+import copy
 async def getDotCode(request: ChatRequest):
     try:    
         formatted_prompt_diagram_type =  PROMPT_TEMPLATE_DIAGRAM_TYPE.format(input=request.input_question)
-        request2 = request
+        request2 = copy.deepcopy(request)
         request2.input_question = formatted_prompt_diagram_type
-        response = query_groq(question="", req=request2, isDotCode=False , isexplanation=False)
+        print("request2 in getDotCode : ",request2)
+        response =await query_groq(question="", req=request2, isDotCode=False , isexplanation=False)
         # Validate diagram classification response
-        response_index = int(response)
-        if response_index is None:
-            return {"error": "Got a null response for diagram classification."}
-        if response_index not in range(len(diagram_types)):
-            response_index = 0
-            # return {"error": "Received an invalid response for diagram classification."}
+        print("response in getDotCode : ",response)
 
-        diagram_type = diagram_types[response_index]
+        
+        if response is None or response.strip() == "":
+            response = "Herarchical Diagram"
+        
+        diagram_type = response.strip()
 
         # Get the Graphviz code
         formatted_prompt =   PROMPT_TEMPLATE_GRAPHVIZ.format(type=diagram_type, input=request.input_question)
         request3 = request
         request3.input_question = formatted_prompt
-        response2 = query_groq(question="",req=request3 , isDotCode=True , isexplanation=False)
+        print("request3 in getDotCode : ",request3)
+        response2 = await query_groq(question="",req=request3 , isDotCode=True , isexplanation=False)
          # Validate dot_code
         if isinstance(response2, dict) and "error" in response2:
             return {"error": response2["error"]}
@@ -151,12 +155,13 @@ async def getDotCode(request: ChatRequest):
 
 async def getExplaination(request: ChatRequest):
     try:
+        chatReq = copy.deepcopy(request)
         question = request.input_question
         formatted_prompt_explaination =  PROMPT_TEMPLATE_PROMPT_EXPLAINATION.format(input=request.input_question)
         print("request in getExplain : ",request)
-        request.input_question = formatted_prompt_explaination
-        print("request after change in  getExplain : ",request)
-        response_explaination =  query_groq(question=question, req=request , isDotCode=False , isexplanation=True)
+        chatReq.input_question = formatted_prompt_explaination
+        print("request after change in  getExplain : ",chatReq)
+        response_explaination = await query_groq(question=question, req=chatReq , isDotCode=False , isexplanation=True)
         print("Response Explaination : ",response_explaination)
         return response_explaination 
     except ValueError:
@@ -164,7 +169,7 @@ async def getExplaination(request: ChatRequest):
     
 # Prompt Templates
 PROMPT_TEMPLATE_GRAPHVIZ = (
-    "Generate a Detailed Graphviz DOT language code for a \"{type}\" illustrating \"{input}\". "
+    "Generate a Graphviz DOT language code for a \"{type}\" illustrating \"{input}\". "
     "Enclose the code within triple backticks (```). "
     "No preamble or additional explanations. Only return the DOT code block."
 )
@@ -172,8 +177,8 @@ PROMPT_TEMPLATE_GRAPHVIZ = (
 PROMPT_TEMPLATE_DIAGRAM_TYPE = (
     "Classify the input \"{input}\" into one of the following diagram types based on which best represents "
     "the information in a neat, clean, and easy-to-understand manner:\n\n"
-    "0 - Flowchart\n1 - Hierarchical Diagram\n2 - Mind Map\n3 - Network Diagram\n4 - Entity-Relationship Diagram\n5 - Table\n\n"
-    "Only return the corresponding number (0, 1, 2, 3, 4, or 5). No preamble or additional text."
+    "Flowchart\nHierarchical Diagram\nMind Map\nNetwork Diagram\nEntity-Relationship Diagram\nTable\n\n"
+    "Only return the corresponding diagram type. No preamble or additional text."
 )
 
 PROMPT_TEMPLATE_PROMPT_EXPLAINATION = (
@@ -191,62 +196,3 @@ diagram_types = [
     "Entity-Relationship Diagram",
     "Table"
 ]
-
-# # Streamlit Interface
-# st.title("CodeForsight-AI Cybersecurity Model")
-# st.subheader("Input your cybersecurity-related query or scenario below.")
-
-# # Input Section
-# input_question = st.text_area("Enter your question/scenario:")
-
-# if st.button("Generate Diagram"):
-#     if input_question.strip():
-#         with st.spinner("Processing..."):
-#             formatted_prompt_diagram_type = PROMPT_TEMPLATE_DIAGRAM_TYPE.format(input=input_question)
-#             response = query_groq(formatted_prompt_diagram_type)
-
-#             formatted_prompt_explaination = PROMPT_TEMPLATE_PROMPT_EXPLAINATION.format(input=input_question)
-#             response_explaination = query_groq(formatted_prompt_explaination)
-
-#             try:
-#                 print("Response : ",response )
-#                 if isinstance(response, dict) and "error" in response:
-#                     st.error(response["error"])
-#                     st.stop()
-#                 response_index = int(response)
-#                 if response_index not in range(len(diagram_types)):
-#                     st.error("Received an invalid response for diagram classification.")
-#                     st.stop()
-
-#                 diagram_type = diagram_types[response_index]
-
-#                 # Get the Graphviz code
-#                 formatted_prompt = PROMPT_TEMPLATE_GRAPHVIZ.format(type=diagram_type, input=input_question)
-#                 response = query_groq(formatted_prompt)
-
-#                 if response:
-#                     dot_code = clean_dot_code(response)  # Clean the Graphviz code
-#                     if not dot_code:
-#                         st.error("Failed to generate a valid Graphviz diagram.")
-#                         st.stop()
-
-#                     # Render and display the Graphviz diagram
-#                     dot = graphviz.Source(dot_code)
-#                     dot_path = "generated_graph"
-#                     dot.render(dot_path, format="png", cleanup=True)  # Save as PNG
-
-#                     # Display the image
-#                     st.subheader("Visual Representation")
-#                     st.image(f"{dot_path}.png")
-
-#                     # Display the Graphviz code
-#                     st.subheader("Explanation")
-#                     st.write(response_explaination)
-
-#                 else:
-#                     st.error("Failed to generate Graphviz code.")
-
-#             except ValueError:
-#                 st.error("Invalid response for diagram type classification.")
-#     else:
-#         st.warning("Please enter a question or scenario.")

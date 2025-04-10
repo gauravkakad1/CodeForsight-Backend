@@ -79,7 +79,7 @@ def initialize_database():
     # Commit the changes and close the connection
     conn.commit()
     conn.close()
-    print("Database initialized")
+    print("sqlite Database initialized ")
 
 def get_all_conversations(request: GetConversationsRequest):
     conn = sqlite3.connect('codeForsightDB.db')
@@ -176,6 +176,7 @@ def update_conversation(user_id ,conversation_id, conversation_name):
     conn.close()
     return cursor.lastrowid 
 
+#done
 def insert_user( user : CreateAccountRequest ):
     conn = sqlite3.connect('codeForsightDB.db')
     cursor = conn.cursor()
