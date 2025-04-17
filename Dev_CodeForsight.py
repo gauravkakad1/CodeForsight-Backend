@@ -26,50 +26,56 @@ client = Groq(api_key=apiKey)
 # Function to query 
 async def query_groq(question : str,req: ChatRequest , isDotCode: bool , isexplanation : bool ) -> str:
     try:
-        print("Request : ",req)
-        print("isDotCode : ",isDotCode)
-        print("isexplanation : ",isexplanation)
+        # print("Request : ",req)
+        # print("isDotCode : ",isDotCode)
+        # print("isexplanation : ",isexplanation)
         prompt : str = req.input_question
-        print("Prompt : ",prompt)
-        req =  GetMessagesRequest(
-            conversation_id = req.conversation_id,
-            user_id =req.user_id
-        )
+        # print("Prompt : ",prompt)
+        # req =  GetMessagesRequest(
+        #     conversation_id = req.conversation_id,
+        #     user_id =req.user_id
+        # )
         chat_messages = []
-
-        print("1")       
-        db_msgs = await mongodb.get_all_messages(req.conversation_id)
-        print("DB Messages : ",str(db_msgs))
-        db_msgs = db_msgs or [] 
-        print("2")       
-        if isexplanation :
-            db_msgs = [msg for msg in db_msgs if (msg['isExplanation'] != 0 and msg['isDotCode'] == 0) or (msg['isExplanation'] == 0 and msg['isDotCode'] == 0)]
+        if isexplanation:
             chat_messages.append({"role": "system", "content": "You are a helpful assistant expert in the cybersecurity domain."})
-            # print("Chat Messages2 : ",chat_messages)
-            # print("DB Messages2 : ",db_msgs)
-            print("2.5")
-            for msg in db_msgs:
-                # print("Msg : ",msg)
-                print("*")
-                print("sender_id : ",str(msg["sender_id"]))
-                role = "user" if msg['sender_id'] != 0 else "assistant"
-                chat_messages.append({"role": role, "content": msg['message']})
-            chat_messages.append({"role": "user", "content": prompt})
-            print("3")
-            print("4")
-            # print("Chat Messages3 : ",chat_messages)
-        if isDotCode :
-            db_msgs = [msg for msg in db_msgs if (msg['isDotCode'] != 0 and msg['isExplanation'] == 0) or (msg['isDotCode'] == 0 and msg['isExplanation'] == 0)]
+        if isDotCode:
             chat_messages.append({"role": "system", "content": "You are a helpful assistant expert in generating DOT language Graphviz code."})
-            for msg in db_msgs:
-                role = "user" if msg['sender_id'] != 0 else "assistant"
-                chat_messages.append({"role": role, "content": msg['message']})
-            chat_messages.append({"role": "user", "content": prompt})
-        else :
+        else:
             chat_messages.append({"role": "system", "content": "You are a helpful assistant expert in text classification."})
-            chat_messages.append({"role": "user", "content": prompt})
-        print("5")
-        print("Chat Messages : ",str(chat_messages))
+        chat_messages.append({"role": "user", "content": prompt})
+        # print("1")       
+        # db_msgs = await mongodb.get_all_messages(req.conversation_id)
+        # print("DB Messages : ",str(db_msgs))
+        # db_msgs = db_msgs or [] 
+        # print("2")       
+        # if isexplanation :
+        #     db_msgs = [msg for msg in db_msgs if (msg['isExplanation'] != 0 and msg['isDotCode'] == 0) or (msg['isExplanation'] == 0 and msg['isDotCode'] == 0)]
+        #     chat_messages.append({"role": "system", "content": "You are a helpful assistant expert in the cybersecurity domain."})
+        #     # print("Chat Messages2 : ",chat_messages)
+        #     # print("DB Messages2 : ",db_msgs)
+        #     print("2.5")
+        #     for msg in db_msgs:
+        #         # print("Msg : ",msg)
+        #         print("*")
+        #         print("sender_id : ",str(msg["sender_id"]))
+        #         role = "user" if msg['sender_id'] != 0 else "assistant"
+        #         chat_messages.append({"role": role, "content": msg['message']})
+        #     chat_messages.append({"role": "user", "content": prompt})
+        #     print("3")
+        #     print("4")
+        #     # print("Chat Messages3 : ",chat_messages)
+        # if isDotCode :
+        #     db_msgs = [msg for msg in db_msgs if (msg['isDotCode'] != 0 and msg['isExplanation'] == 0) or (msg['isDotCode'] == 0 and msg['isExplanation'] == 0)]
+        #     chat_messages.append({"role": "system", "content": "You are a helpful assistant expert in generating DOT language Graphviz code."})
+        #     for msg in db_msgs:
+        #         role = "user" if msg['sender_id'] != 0 else "assistant"
+        #         chat_messages.append({"role": role, "content": msg['message']})
+        #     chat_messages.append({"role": "user", "content": prompt})
+        # else :
+        #     chat_messages.append({"role": "system", "content": "You are a helpful assistant expert in text classification."})
+        #     chat_messages.append({"role": "user", "content": prompt})
+        # print("5")
+        # print("Chat Messages : ",str(chat_messages))
          # Calculate token size
         # enc = tiktoken.get_encoding("gpt-3.5-turbo")
         # token_size = sum(len(enc.encode(message["content"])) for message in chat_messages)
@@ -88,7 +94,7 @@ async def query_groq(question : str,req: ChatRequest , isDotCode: bool , isexpla
 
         )
         
-        print("6")
+        # print("6")
         # print("Chat Completion : ",chat_completion.choices[0].message.content.strip())
         # if chat_completion.choices[0].message.content.strip() is not None and chat_completion.choices[0].message.content.strip() != "":
         #     # chat_messages.append({"role": "assistant", "content": chat_completion.choices[0].message.content.strip()})
@@ -125,7 +131,6 @@ async def getDotCode(request: ChatRequest):
         # Validate diagram classification response
         print("response in getDotCode : ",response)
 
-        
         if response is None or response.strip() == "":
             response = "Herarchical Diagram"
         
@@ -182,7 +187,7 @@ PROMPT_TEMPLATE_DIAGRAM_TYPE = (
 )
 
 PROMPT_TEMPLATE_PROMPT_EXPLAINATION = (
-    "Explain the input prompt \"{input}\" in detail. "
+    "Explain the input prompt \"{input}\". "
     "Provide a comprehensive explanation covering the key points and concepts. "
     "Ensure the explanation is clear, concise, and easy to understand. "
     "No preamble or additional text."
